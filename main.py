@@ -8,6 +8,8 @@ import requests
 import busio
 from datetime import datetime, timedelta
 from adafruit_bme280 import basic as adafruit_bme280
+import asyncio
+import sys
 
 # Sensor data pin is connected to GPIO 4
 # sensor = adafruit_dht.DHT22(board.D4
@@ -89,7 +91,7 @@ def get_barometric_pressure():
     print("-" * 40)
 
     
-def send_to_api(data):
+async def send_to_api(data):
     """
     Send temp and humidity data to the api and receive action response.
     SENT DATA:
@@ -103,7 +105,7 @@ def send_to_api(data):
     }
     """
     try:
-        response = requests.post(API_URL, data, headers=HEADERS)
+        response = await requests.post(API_URL, data, headers=HEADERS)
         if response.status_code == 200:
             print("Status code : 200")
             #print("Datele au fost trimise cu success:", response.json())
@@ -115,9 +117,17 @@ def send_to_api(data):
         print("Eroare de conexiune la API:", str(e))
         return None
 
+
+async def loading_animation():
+    spinner = ['|', '/', '-', '\\']
+    while True:
+        for char in spinner:
+            sys.stdout.write(f"\rLoading {char}")
+            sys.stdout.flush()
+            await asyncio.sleep(0.1)
+
 # Function to read button press
-def button_callback(channel):
-    print("here entered")
+async def button_callback(channel):
     global last_pressed_time
     current_time = time.time() * 1000  # Current time in milliseconds
     if current_time - last_pressed_time >= DEBOUNCE_TIME:
@@ -126,9 +136,26 @@ def button_callback(channel):
 
         sensor_data = get_temperature_and_humidity()
         print("Date citite: ", sensor_data)
-        response = send_to_api(json.dumps({"temperatura" : sensor_data[0],
+        print("Wait for API response")
+
+        # Start the loading animation in the background
+        task = asyncio.create_task(loading_animation())
+
+        # Save time before api request started
+        before_request = time.time()
+
+        # Call api by asyncronously waiting for its response
+        response = await send_to_api(json.dumps({"temperatura" : sensor_data[0],
                                            "umiditate" : sensor_data[1]}))
-        print(str(response.json()))
+
+        task.cancel()
+
+        # Get time when the api responded
+        after_request = time.time()
+
+        print("Response:\n\n" + str(response.json()))
+
+        print("API Response time of: " + str(after_request-before_request))
         time.sleep(1)
 
 def initSensors():
