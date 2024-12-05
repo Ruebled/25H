@@ -103,16 +103,13 @@ def send_to_api(data):
         api_request_in_progress = False  # Reset flag on error
         return None
 
+
 def button_callback(channel):
     """
     Callback function for button press event.
     """
     global api_request_in_progress  # Add this to ensure it refers to the global variable
     global last_pressed_time
-
-    # Dissable interrupts on the button input to not accept any more interrupt
-    GPIO.remove_event_detect(BUTTON_PIN)
-    logging.info("Remove interrupt")
 
     current_time = time.time() * 1000  # Current time in milliseconds
 
@@ -129,12 +126,6 @@ def button_callback(channel):
                 #logging.info(f"API Response: {response.json()}")
                 logging.info(f"API Response:\n{json.dumps(response.json(), indent=2)}")
 
-
-        time.sleep(1)
-
-    # Re-add event interupt on button
-    GPIO.add_event_detect(BUTTON_PIN, GPIO.RISING, callback=button_callback, bouncetime=DEBOUNCE_TIME)
-    logging.info("Re-enable interrupt")
 
 def loading_animation():
     """
@@ -164,6 +155,9 @@ def main():
     """
     Main function to run the program.
     """
+    global debounce_api_request
+    global api_request_in_progress
+
     init_sensors()
     logging.info("Program started. Press the button to record data.")
 
@@ -172,9 +166,9 @@ def main():
     animation_thread.start()
 
     try:
-        # Keep the program running to listen for button presses
         while True:
-            time.sleep(0.1)
+            time.sleep(0.01)
+
     except KeyboardInterrupt:
         logging.info("\nProgram terminated by user.")
     finally:
