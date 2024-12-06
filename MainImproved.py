@@ -15,6 +15,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Pin configuration
 BUTTON_PIN = 26  # Replace with the GPIO pin number you are using
+GREEN_LED = 14
+YELLOW_LED = 15
+RED_LED = 18
 SENSOR_PIN = board.D4  # GPIO pin for the DHT sensor
 API_URL = "https://25h-endmfkd8efcvbzae.canadacentral-01.azurewebsites.net/new_daily_temperature"
 HEADERS = {"Content-Type": "application/json"}
@@ -69,6 +72,31 @@ def get_barometric_pressure():
     logging.info(f"BME280 Readings -> Pressure: {pressure:.2f} hPa")
     return pressure
 
+def light_led(status):
+    """
+    Status:
+        0 - Green
+        1 - Yellow
+        2 - Red
+    """
+    GPIO.output(GREEN_LED, 0);
+    GPIO.output(YELLOW_LED, 0);
+    GPIO.output(RED_LED, 0);
+    print(status)
+    
+    if status == 0:
+        GPIO.output(GREEN_LED, 1);
+        print("GREEN")
+    elif status == 1:
+        GPIO.output(YELLOW_LED, 1);
+        print("YELLOW")
+    elif status == 2:
+        GPIO.output(RED_LED, 1);
+        print("RED")
+    else:
+        pass
+
+
 def send_to_api(data):
     """
     Send temperature and humidity data to the API and receive action response.
@@ -92,8 +120,11 @@ def send_to_api(data):
 
         if response.status_code == 200:
             print("\n")
+            light_led(int(response.json()['status']))
             logging.info("Data successfully sent to API.")
             logging.info("API Response time: " + str(float("{:.3f}".format(after_request - before_request))) + "s")
+            #light the led respective to the status code received
+
             return response
         else:
             logging.error(f"API call failed: {response.status_code} - {response.text}")
@@ -137,7 +168,6 @@ def loading_animation():
         if api_request_in_progress:
             for block in blocks:
                 print(f"\r{block} Sending data to API...", end='', flush=True)
-                #print(f"\r{block}", end='')
                 time.sleep(0.5)  # Update every 0.5 seconds
         else:
             #print("\rData sent successfully or not in progress.", end='', flush=True)
@@ -147,8 +177,18 @@ def init_sensors():
     """
     Initialize GPIO settings and button callback.
     """
+    # Set up pinout mode
     GPIO.setmode(GPIO.BCM)
+
+    # Configure button input as input
     GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+    # Set up led gpio as output
+    GPIO.setup(GREEN_LED, GPIO.OUT)
+    GPIO.setup(YELLOW_LED, GPIO.OUT)
+    GPIO.setup(RED_LED, GPIO.OUT)
+
+    # Interrupt set up
     GPIO.add_event_detect(BUTTON_PIN, GPIO.RISING, callback=button_callback, bouncetime=DEBOUNCE_TIME)
 
 def main():
